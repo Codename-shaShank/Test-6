@@ -251,7 +251,7 @@ jobs:
                   return c
                 }
 
-                function flush_block(  i, block_lines, block_chars_count) {
+                function flush_block(  i, block_lines, block_chars_count, remaining_lines, remaining_chars, note_line, note_chars, partial_lines, partial_chars, line_chars) {
                   if (block_count == 0) return
 
                   block_lines = block_count + 1
@@ -264,6 +264,36 @@ jobs:
                     total_chars += block_chars_count
                     included_any=1
                   } else {
+                    # Fall back to a partial excerpt when the full block does not fit.
+                    remaining_lines = max_lines - total_lines
+                    remaining_chars = max_chars - total_chars
+                    note_line = "[NOTE] Partial excerpt shown; full error block exceeded remaining budget."
+                    note_chars = length(note_line) + 1
+                    partial_lines = 0
+                    partial_chars = 0
+
+                    if (remaining_lines > 2 && remaining_chars > note_chars + 1) {
+                      for (i = 1; i <= block_count; i++) {
+                        line_chars = length(block[i]) + 1
+
+                        # Reserve space for the note line + trailing blank line.
+                        if ((total_lines + partial_lines + 2) > max_lines) break
+                        if ((total_chars + partial_chars + line_chars + note_chars + 1) > max_chars) break
+
+                        print block[i]
+                        partial_lines += 1
+                        partial_chars += line_chars
+                      }
+
+                      if (partial_lines > 0) {
+                        print note_line
+                        print ""
+                        total_lines += partial_lines + 2
+                        total_chars += partial_chars + note_chars + 1
+                        included_any=1
+                      }
+                    }
+
                     truncated=1
                   }
 
@@ -302,12 +332,12 @@ jobs:
                     print "No error-pattern blocks found for this job."
                     print ""
                   } else if (!included_any) {
-                    print "No complete error block could fit within the remaining size budget for this job."
+                    print "No error excerpt could fit within the remaining size budget for this job."
                     print ""
                   }
 
                   if (truncated) {
-                    print "[NOTE] Additional error blocks were omitted to stay within size limits."
+                    print "[NOTE] Additional error content was truncated to stay within size limits."
                     print ""
                   }
                 }
@@ -339,13 +369,13 @@ jobs:
 
             if [[ "${INCLUDED_JOBS}" -eq 0 ]]; then
               {
-                echo "No failed-job error sections could be included without exceeding limits (4,000 lines / 30,000 chars)."
-                echo "Only complete error blocks are included (no partial error blocks)."
+                echo "No failed-job error excerpts could be included without exceeding limits (4,000 lines / 30,000 chars)."
+                echo "Partial excerpts are enabled, but this run had no budget left for any excerpt."
               } > /tmp/failure_logs.txt
             elif [[ "${SKIPPED_JOBS}" -gt 0 ]]; then
               {
                 echo ""
-                echo "[NOTE] Skipped ${SKIPPED_JOBS} failed job(s) because no complete error blocks fit in the remaining budget."
+                echo "[NOTE] Skipped ${SKIPPED_JOBS} failed job(s) because no additional error excerpts fit in the remaining budget."
               } >> /tmp/failure_logs.txt
             fi
           fi
@@ -735,6 +765,10 @@ jobs:
           gh api "repos/${REPO}/issues/${PR_NUMBER}/labels" \
             --method POST \
             --input - <<< '{"labels":["copilot-ci-fix-requested"]}'
+
+          # If CI failed again and a new attempt is being triggered, this PR is not complete.
+          gh api "repos/${REPO}/issues/${PR_NUMBER}/labels/copilot-fix-complete" \
+            --method DELETE 2>/dev/null || true
 
       - name: Persist controller state
         if: >-
