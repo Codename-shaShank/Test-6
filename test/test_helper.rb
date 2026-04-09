@@ -8,7 +8,7 @@ require "rails/test_help"
 if Gem::Version.new(Minitest::VERSION) >= Gem::Version.new("6.0")
   module Rails
     module LineFiltering
-      remove_method :run
+      remove_method :run if method_defined?(:run)
       def run_suite(reporter, options = {})
         options[:filter] = Rails::TestUnit::Runner.compose_filter(self, options[:filter])
         super
