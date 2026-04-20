@@ -85,6 +85,7 @@ GEM
       xpath (~> 3.2)
     chartkick (5.0.6)
     concurrent-ruby (1.2.3)
+    connection_pool (3.0.2)
     crass (1.0.6)
     date (3.3.4)
     debug (1.9.1)
@@ -181,7 +182,10 @@ GEM
     rake (13.1.0)
     rdoc (6.6.2)
       psych (>= 4.0.0)
-    redis (4.8.1)
+    redis (5.4.1)
+      redis-client (>= 0.22.0)
+    redis-client (0.28.0)
+      connection_pool
     regexp_parser (2.9.0)
     reline (0.4.3)
       io-console (~> 0.5)
@@ -245,7 +249,7 @@ DEPENDENCIES
   jbuilder
   puma (~> 5.0)
   rails (~> 7.0.8, >= 7.0.8.1)
-  redis (~> 4.0)
+  redis (~> 5.4)
   selenium-webdriver
   sprockets-rails
   sqlite3 (~> 1.4)
